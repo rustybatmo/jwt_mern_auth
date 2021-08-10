@@ -3,7 +3,8 @@ const User = require("../models/userModel");
 const becrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-router.post("/", async (req, res) => {
+//register
+router.post("/register", async (req, res) => {
   try {
     const { email, password, passwordVerify } = req.body;
 
@@ -33,7 +34,6 @@ router.post("/", async (req, res) => {
     //hash the password
     const salt = await becrypt.genSalt();
     const passwordHash = await becrypt.hash(password, salt);
-    console.log(passwordHash);
 
     //save the new user to the database
     const newUser = new User({
@@ -51,13 +51,54 @@ router.post("/", async (req, res) => {
         httpOnly: true,
       })
       .send();
-    console.log(token);
-
-    // res.send(req.body);
   } catch (err) {
     console.log(err);
     res.status(500).send();
   }
+});
+
+//logging in users
+
+router.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  //validation
+  if (!email || !password) {
+    res.send("Please enter both the fields");
+  }
+
+  const userExisting = await User.findOne({
+    email,
+  });
+  if (!userExisting) {
+    res.send("Wrong email or password");
+  }
+
+  const passwordCorrect = await becrypt.compare(
+    password,
+    userExisting.passwordHash
+  );
+
+  if (!passwordCorrect) {
+    res.send("Wrong email or password");
+  }
+
+  const token = jwt.sign({ user: userExisting._id }, process.env.JWT_SECRET);
+  console.log("this is the token", token);
+  res.cookie("token", token, { httpOnly: true }).send("Token sent back");
+
+  // const token = jwt.sign({user: })
+
+  console.log(email + "  " + password);
+});
+
+router.get("/logout", (req, res) => {
+  res
+    .cookie("token", "", {
+      httpOnly: true,
+      expires: new Date(0),
+    })
+    .send();
 });
 
 module.exports = router;
